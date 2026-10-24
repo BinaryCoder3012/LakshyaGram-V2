@@ -190,15 +190,21 @@ export async function markRead(chatId, uid, messages) {
 }
 
 // ---------------- Lakshya AI ----------------
+// Returns { reply, remaining, limit, resetAt }. Errors carry .status (429 when the daily quota is used up).
 export async function askAI(history) {
+  const token = await auth.currentUser?.getIdToken();
   const res = await fetch('/api/chat', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     body: JSON.stringify({ messages: history }),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.error) throw new Error(data.error || 'Lakshya AI did not answer.');
-  return data.reply;
+  if (!res.ok || data.error) {
+    const err = new Error(data.error || 'Lakshya AI did not answer.');
+    Object.assign(err, { status: res.status, resetAt: data.resetAt });
+    throw err;
+  }
+  return data;
 }
 
 // ---------------- admin ----------------

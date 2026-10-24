@@ -302,7 +302,18 @@ function paintHeader(u) {
   const st = $('#c-status');
   st.textContent = lastSeen(u);
   st.classList.toggle('online', Boolean(u.online && !u.isBot));
-  $('#input').placeholder = u.isBot ? `Ask ${u.name} anything` : `Message ${u.name.split(' ')[0]}`;
+  $('#input').placeholder = u.isBot ? botPlaceholder() : `Message ${u.name.split(' ')[0]}`;
+}
+
+// Free Lakshya AI messages left today, as last reported by the server.
+let aiLeft = null;
+function botPlaceholder() {
+  if (aiLeft === null) return `Ask ${store.botName} anything`;
+  return aiLeft ? `Ask ${store.botName} anything · ${aiLeft} free left today` : `No free ${store.botName} messages left today`;
+}
+function setAIQuota(remaining) {
+  aiLeft = remaining ?? null;
+  if (S.otherId === store.botId) $('#input').placeholder = botPlaceholder();
 }
 
 function showPane(which) {
@@ -467,11 +478,21 @@ async function replyAsBot(chatId, msgs) {
   const history = msgs.filter(m => !m.deleted && m.text).slice(-30)
     .map(m => ({ role: m.senderId === store.botId ? 'model' : 'user', text: m.text }));
   try {
-    const reply = await store.askAI(history);
+    const { reply, remaining } = await store.askAI(history);
     await store.sendMessage(chatId, null, { senderId: store.botId, senderName: store.botName, text: reply, read: true }, reply);
+    setAIQuota(remaining);
+    if (remaining !== null && remaining <= 3) toast(remaining ? `${remaining} free ${store.botName} message${remaining === 1 ? '' : 's'} left today` : `That was your last free ${store.botName} message today`);
   } catch (e) {
     console.error('Lakshya AI', e);
-    toast(`${store.botName} could not answer right now. Try again in a moment.`);
+    if (e.status === 429) {
+      setAIQuota(0);
+      const at = e.resetAt ? new Date(e.resetAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : 'midnight';
+      toast(`${e.message} More unlock at ${at}.`);
+    } else if (e.status === 401) {
+      toast(`Sign in again to keep talking to ${store.botName}.`);
+    } else {
+      toast(`${store.botName} could not answer right now. Try again in a moment.`);
+    }
   } finally {
     S.aiThinking = false;
     if (S.activeId === chatId) showTyping(Boolean(S.chat?.typing?.[S.otherId]));

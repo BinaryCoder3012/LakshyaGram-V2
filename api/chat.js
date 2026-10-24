@@ -7,7 +7,15 @@
 //   AI_PROVIDER      optional: 'gemini' or 'ollama' to try that one first (default gemini)
 //   GEMINI_MODEL     optional model override
 //   OLLAMA_MODEL     optional model override (default gpt-oss:120b)
+//   AI_DAILY_LIMIT   free messages a day for signed-in members (default 25)
+//   AI_GUEST_LIMIT   free messages a day for guests (default 10)
+//   AI_IP_LIMIT      messages a day from one network, all accounts together (default 80)
+//   ADMIN_EMAILS     comma-separated emails with no limit (default the project owner)
+//   KV_REST_API_URL + KV_REST_API_TOKEN (or UPSTASH_REDIS_REST_URL + _TOKEN)
+//                    Upstash Redis for the counters. Without it, counts live in the
+//                    function's memory, which resets when Vercel recycles it.
 // If the first provider fails, the other one answers, when its key is set.
+// Callers must send a Firebase ID token: Authorization: Bearer <token>.
 
 const SYSTEM = `You are Lakshya AI, the assistant inside LakshyaGram, a chat app made by a student at BITS Pilani, Hyderabad Campus. Most people talking to you are college students.
 
@@ -21,6 +29,15 @@ How to answer:
 - Be warm and a little witty, like a sharp senior who wants the person to understand, not just copy. Reply in the language the person writes in.`;
 
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
+// The Firebase web API key is public (it ships to every browser); it is only used to verify ID tokens.
+const FIREBASE_WEB_KEY = process.env.FIREBASE_WEB_API_KEY || 'AIzaSyBwIix3qNTgtGWUxJJEQHKWKoJ4Dnrbiec';
+const GUEST_DOMAIN = '@guest.lakshyagram.app';
+const LIMITS = {
+  member: Number(process.env.AI_DAILY_LIMIT) || 25,
+  guest: Number(process.env.AI_GUEST_LIMIT) || 10,
+  ip: Number(process.env.AI_IP_LIMIT) || 80,
+};
+const ADMINS = (process.env.ADMIN_EMAILS || 'lakshya.sudipta15@gmail.com').toLowerCase().split(',').map(e => e.trim());
 const OLLAMA_API = 'https://ollama.com/api';
 let geminiModels = null; // cached while the function stays warm
 let ollamaModels = null;
@@ -50,10 +67,14 @@ async function listGeminiFlash(key) {
 
 async function askGemini(history, key) {
   const contents = history.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
-  const body = JSON.stringify({
+  // Light thinking keeps replies fast; models that reject the setting are retried without it.
+  const bodyFor = (model, light) => JSON.stringify({
     systemInstruction: { parts: [{ text: SYSTEM }] },
     contents,
-    generationConfig: { temperature: 0.6, maxOutputTokens: 8192 },
+    generationConfig: {
+      temperature: 0.6, maxOutputTokens: 8192,
+      ...(light ? { thinkingConfig: /gemini-2\./.test(model) ? { thinkingBudget: 512 } : { thinkingLevel: 'low' } } : {}),
+    },
   });
   const tried = new Set();
   let last = null;
@@ -62,13 +83,15 @@ async function askGemini(history, key) {
     for (const model of candidates) {
       if (tried.has(model) || tried.size >= 6) continue;
       tried.add(model);
-      const res = await fetch(`${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body,
+      const call = light => fetch(`${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: bodyFor(model, light),
       });
+      let res = await call(true);
+      if (res.status === 400) res = await call(false);
       if (res.ok) {
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.filter(p => !p.thought).map(p => p.text || '').join('').trim();
-        if (text) return text;
+        if (text) return { text, model };
         last = new ProviderError('gemini', 502, `empty reply from ${model}`);
         continue;
       }
@@ -103,15 +126,18 @@ async function askOllama(history, key) {
     for (const model of candidates) {
       if (tried.has(model) || tried.size >= 4) continue;
       tried.add(model);
-      const res = await fetch(`${OLLAMA_API}/chat`, {
+      const call = light => fetch(`${OLLAMA_API}/chat`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-        body: JSON.stringify({ model, messages, stream: false, options: { temperature: 0.6 } }),
+        body: JSON.stringify({ model, messages, stream: false, ...(light ? { think: 'low' } : {}), options: { temperature: 0.6 } }),
       });
+      // Models without a thinking mode reject the setting, so retry without it.
+      let res = await call(true);
+      if (res.status === 400) res = await call(false);
       if (res.ok) {
         const data = await res.json();
         const text = (data.message?.content || '').trim();
-        if (text) return text;
+        if (text) return { text, model };
         last = new ProviderError('ollama', 502, `empty reply from ${model}`);
         continue;
       }
@@ -121,6 +147,49 @@ async function askOllama(history, key) {
     }
   }
   throw last || new ProviderError('ollama', 502, 'no usable model');
+}
+
+// ---------------- who is asking ----------------
+async function verifyUser(req) {
+  const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '');
+  if (!token) return null;
+  const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${FIREBASE_WEB_KEY}`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ idToken: token }),
+  });
+  if (!res.ok) return null;
+  const user = (await res.json()).users?.[0];
+  if (!user) return null;
+  const email = (user.email || '').toLowerCase();
+  const guest = !email || email.endsWith(GUEST_DOMAIN);
+  return { uid: user.localId, kind: ADMINS.includes(email) ? 'admin' : guest ? 'guest' : 'member' };
+}
+
+// ---------------- daily quota ----------------
+// Days roll over at midnight India time.
+function today() {
+  const ist = new Date(Date.now() + 5.5 * 3600 * 1000);
+  const next = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate() + 1) - 5.5 * 3600 * 1000;
+  return { day: ist.toISOString().slice(0, 10), resetAt: new Date(next).toISOString() };
+}
+
+const redisUrl = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
+const redisToken = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN;
+const memory = new Map();
+
+async function bump(key, by) {
+  if (redisUrl && redisToken) {
+    const res = await fetch(`${redisUrl}/pipeline`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${redisToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([['INCRBY', key, String(by)], ['EXPIRE', key, '172800']]),
+    });
+    if (res.ok) return Number((await res.json())[0]?.result) || 0;
+    console.error('Rate limit store error', res.status);
+  }
+  const n = (memory.get(key) || 0) + by;
+  memory.set(key, n);
+  if (memory.size > 5000) memory.delete(memory.keys().next().value);
+  return n;
 }
 
 // ---------------- handler ----------------
@@ -140,6 +209,30 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Server config error: API key missing.' });
   }
 
+  let user;
+  try { user = await verifyUser(req); } catch (e) { console.error('Token check failed', e); }
+  if (!user) return res.status(401).json({ error: 'Sign in to talk to Lakshya AI.' });
+
+  // Count first so parallel requests can't slip past the limit; refund if no answer comes back.
+  const { day, resetAt } = today();
+  const limit = user.kind === 'admin' ? Infinity : LIMITS[user.kind];
+  const ip = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() || 'unknown';
+  const userKey = `ai:${day}:u:${user.uid}`;
+  const ipKey = `ai:${day}:ip:${ip}`;
+  let used = 0;
+  if (user.kind !== 'admin') {
+    used = await bump(userKey, 1);
+    const ipUsed = await bump(ipKey, 1);
+    if (used > limit || ipUsed > LIMITS.ip) {
+      await bump(userKey, -1);
+      await bump(ipKey, -1);
+      return res.status(429).json({ error: `You've used today's ${limit} free Lakshya AI messages.`, limit, remaining: 0, resetAt });
+    }
+  }
+  const refund = async () => {
+    if (user.kind !== 'admin') { await bump(userKey, -1); await bump(ipKey, -1); }
+  };
+
   const { messages, prompt } = req.body || {};
   let history = Array.isArray(messages)
     ? messages
@@ -152,15 +245,21 @@ export default async function handler(req, res) {
   }
   // The conversation has to start with the user.
   while (history.length && history[0].role !== 'user') history.shift();
-  if (!history.length) return res.status(400).json({ error: 'Send at least one message.' });
+  if (!history.length) { await refund(); return res.status(400).json({ error: 'Send at least one message.' }); }
 
   for (const provider of order) {
     try {
-      const reply = provider === 'gemini' ? await askGemini(history, keys.gemini) : await askOllama(history, keys.ollama);
-      return res.status(200).json({ reply, provider });
+      const { text, model } = provider === 'gemini' ? await askGemini(history, keys.gemini) : await askOllama(history, keys.ollama);
+      return res.status(200).json({
+        reply: text, provider, model,
+        limit: Number.isFinite(limit) ? limit : null,
+        remaining: Number.isFinite(limit) ? Math.max(0, limit - used) : null,
+        resetAt,
+      });
     } catch (err) {
       console.error(`Lakshya AI ${provider} failed:`, err.detail || err.message);
     }
   }
+  await refund();
   return res.status(502).json({ error: 'AI service unavailable.' });
 }
