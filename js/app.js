@@ -64,6 +64,7 @@ function formatText(raw) {
   s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
        .replace(/(^|[\s(])\*(?!\s)(.+?)\*(?=[\s).,!?]|$)/gm, '$1<strong>$2</strong>')
        .replace(/(^|[\s(])_(?!\s)(.+?)_(?=[\s).,!?]|$)/gm, '$1<em>$2</em>')
+       .replace(/^#{1,6}\s+(.+)$/gm, '<strong>$1</strong>')
        .replace(/^\s*[-*] /gm, '• ')
        .replace(/(https?:\/\/[^\s<]+[^\s<.,!?)])/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
   return s.replace(/\u0000(\d+)\u0000/g, (_, i) => blocks[i]);
@@ -463,7 +464,7 @@ async function send() {
 async function replyAsBot(chatId, msgs) {
   S.aiThinking = true;
   if (S.activeId === chatId) showTyping(true);
-  const history = msgs.filter(m => !m.deleted && m.text).slice(-20)
+  const history = msgs.filter(m => !m.deleted && m.text).slice(-30)
     .map(m => ({ role: m.senderId === store.botId ? 'model' : 'user', text: m.text }));
   try {
     const reply = await store.askAI(history);
