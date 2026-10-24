@@ -283,6 +283,20 @@ $('#magic-btn').addEventListener('click', async () => {
     say('Link sent. Open it from your inbox on this device. Check spam if it is not there in a minute.', 'ok');
   } catch (err) { say(friendly(err), 'error'); }
 });
+$('#guest-btn').addEventListener('click', async e => {
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    await store.signInAsGuest();
+    say('Signed in as a guest. Opening your chats…', 'ok');
+    location.href = 'app.html';
+  } catch (err) {
+    const code = err?.code || '';
+    say(code.includes('operation-not-allowed') || code.includes('admin-restricted')
+      ? 'Guest sign-in is turned off for this project. Sign in with email instead.'
+      : friendly(err), 'error');
+  } finally { btn.disabled = false; }
+});
 $('#reset-btn').addEventListener('click', async () => {
   const email = $('#form-login [name="email"]').value.trim();
   if (!email) return say('Enter your email first, then we will send a reset link to it.', 'error');

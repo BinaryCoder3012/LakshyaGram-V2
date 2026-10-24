@@ -319,6 +319,7 @@ kbd { font-family: var(--font); display: inline-grid; place-items: center; min-w
 .strength i { display: block; height: 100%; width: 0; background: var(--red); transition: width .3s var(--ease-out), background-color .3s; }
 .auth-form .btn { width: 100%; }
 .auth-form .text-link { align-self: center; }
+.guest-btn { width: 100%; }
 .auth-msg { min-height: 1.4em; font-size: .9375rem; color: var(--muted); }
 .auth-msg.error { color: #FF8A8A; }
 .auth-msg.ok { color: var(--gold); }

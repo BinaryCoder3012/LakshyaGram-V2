@@ -10,7 +10,7 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
 import {
   getAuth, onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
-  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, sendPasswordResetEmail, signOut as fbSignOut,
+  sendSignInLinkToEmail, isSignInWithEmailLink, signInWithEmailLink, sendPasswordResetEmail, signInAnonymously, signOut as fbSignOut,
 } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
 import {
   getFirestore, doc, getDoc, getDocs, setDoc, updateDoc, deleteDoc, addDoc, collection, query, where, orderBy,
@@ -42,6 +42,7 @@ export function onAuth(cb) {
   return onAuthStateChanged(auth, cb);
 }
 export async function signIn(email, password) { requireConfig(); return signInWithEmailAndPassword(auth, email, password); }
+export async function signInAsGuest() { requireConfig(); return signInAnonymously(auth); }
 export async function signUp({ name, email, password, bio }) {
   requireConfig();
   const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -83,8 +84,10 @@ export async function ensureProfile(user) {
     return { ...snap.data(), uid: user.uid };
   }
   const profile = {
-    uid: user.uid, email: user.email, name: (user.email || 'friend').split('@')[0], bio: '',
-    avatarColor: AVATAR_COLORS[0], status: 'Active now', online: true, createdAt: serverTimestamp(),
+    uid: user.uid, email: user.email || '',
+    name: user.isAnonymous ? `Guest ${user.uid.slice(0, 4).toUpperCase()}` : (user.email || 'friend').split('@')[0],
+    bio: '', isGuest: Boolean(user.isAnonymous),
+    avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)], status: 'Active now', online: true, createdAt: serverTimestamp(),
   };
   await setDoc(ref, profile);
   return profile;
