@@ -4,7 +4,7 @@
 // Environment:
 //   GEMINI_API_KEY   Google AI Studio key
 //   OLLAMA_API_KEY   ollama.com key
-//   AI_PROVIDER      optional: 'gemini' or 'ollama' to try that one first (default gemini)
+//   AI_PROVIDER      optional: 'gemini' or 'ollama' to try that one first (default ollama, it answers fastest)
 //   GEMINI_MODEL     optional model override
 //   OLLAMA_MODEL     optional model override (default gpt-oss:120b)
 //   AI_DAILY_LIMIT   free messages a day for signed-in members (default 25)
@@ -26,6 +26,7 @@ How to answer:
 - For maths, show the working. For code, give complete, runnable code in fenced blocks with the language named, and say how to run it.
 - If the question is ambiguous, answer the most likely reading and say what you assumed. If you don't know or can't know (live data, today's news), say so plainly instead of guessing.
 - Use **bold**, short bullet lists and \`code\` where they help; avoid headings and tables, they don't fit a chat bubble.
+- Never use LaTeX (no \( \) \[ \] or $ signs). Write maths in plain text, like 60 ÷ 0.75 = 80 km/h or x² + 2x + 1.
 - Be warm and a little witty, like a sharp senior who wants the person to understand, not just copy. Reply in the language the person writes in.`;
 
 const GEMINI_API = 'https://generativelanguage.googleapis.com/v1beta';
@@ -206,7 +207,7 @@ export default async function handler(req, res) {
 
   const keys = { gemini: process.env.GEMINI_API_KEY, ollama: process.env.OLLAMA_API_KEY };
   const asked = ['gemini', 'ollama'].includes(req.body?.provider) ? req.body.provider : null;
-  const first = asked || (process.env.AI_PROVIDER === 'ollama' ? 'ollama' : 'gemini');
+  const first = asked || (process.env.AI_PROVIDER === 'gemini' ? 'gemini' : 'ollama');
   const order = [first, first === 'gemini' ? 'ollama' : 'gemini'].filter(p => keys[p]);
   if (!order.length) {
     console.error('Neither GEMINI_API_KEY nor OLLAMA_API_KEY is set.');
