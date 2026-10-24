@@ -699,7 +699,7 @@ function openContact() {
   $('#contact-name').textContent = u.name;
   $('#contact-status').textContent = lastSeen(u);
   $('#contact-bio').textContent = u.bio || '';
-  $('#contact-email').textContent = u.isBot ? 'Powered by Google Gemini' : (u.email || '');
+  $('#contact-email').textContent = u.isBot ? 'Powered by Google Gemini' : (u.isGuest ? 'Guest account' : (u.email || ''));
   $('#contact').showModal();
   popIn('#contact');
 }
@@ -715,6 +715,7 @@ function popIn(sel) {
 }
 
 function showAdmin() {
+  if (!S.isAdmin) return;
   closeChat();
   showPane('admin');
   renderAdmin($('#admin'), { me: S.profile, uid: S.user.uid, toast, users: S.users, openChat: (id, other) => openChat(id, other) });

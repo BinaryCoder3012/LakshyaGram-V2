@@ -31,6 +31,10 @@ const db = app ? getFirestore(app) : null;
 const AVATAR_COLORS = ['#F7A8B8', '#9ED9B5', '#B9C7FF', '#FFD58A', '#9FD8EC', '#F5B38F', '#C8E89A', '#E5B8F0'];
 export const BOT_PROFILE = { uid: botId, name: botName, avatarColor: '#FFC93C', bio: 'Your AI assistant, always here', status: 'Always online', online: true, isBot: true };
 const MAGIC_EMAIL_KEY = 'lg_magic_email';
+const GUEST_KEY = 'lg_guest';
+const GUEST_DOMAIN = '@guest.lakshyagram.app';
+const isGuestUser = user => Boolean(user?.isAnonymous || user?.email?.endsWith(GUEST_DOMAIN));
+const guestName = uid => `Guest ${uid.slice(0, 4).toUpperCase()}`;
 
 export const isAdminEmail = email => adminEmails.map(e => e.toLowerCase()).includes((email || '').toLowerCase());
 export const chatIdFor = (a, b) => [a, b].sort().join('_');
@@ -42,7 +46,33 @@ export function onAuth(cb) {
   return onAuthStateChanged(auth, cb);
 }
 export async function signIn(email, password) { requireConfig(); return signInWithEmailAndPassword(auth, email, password); }
-export async function signInAsGuest() { requireConfig(); return signInAnonymously(auth); }
+// Guests use Firebase anonymous sign-in. If that provider is switched off,
+// they get a private email/password account remembered on this device.
+export async function signInAsGuest() {
+  requireConfig();
+  try {
+    return await signInAnonymously(auth);
+  } catch (err) {
+    const code = err?.code || '';
+    if (!code.includes('operation-not-allowed') && !code.includes('admin-restricted')) throw err;
+  }
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem(GUEST_KEY)); } catch {}
+  if (saved?.email && saved?.password) {
+    try { return await signInWithEmailAndPassword(auth, saved.email, saved.password); } catch {}
+  }
+  const id = crypto.randomUUID().replace(/-/g, '');
+  const email = `guest-${id.slice(0, 16)}${GUEST_DOMAIN}`;
+  const password = crypto.randomUUID() + crypto.randomUUID();
+  const cred = await createUserWithEmailAndPassword(auth, email, password);
+  try { localStorage.setItem(GUEST_KEY, JSON.stringify({ email, password })); } catch {}
+  await setDoc(doc(db, 'users', cred.user.uid), {
+    uid: cred.user.uid, email: '', name: guestName(cred.user.uid), bio: '', isGuest: true,
+    avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+    status: 'Active now', online: true, createdAt: serverTimestamp(),
+  });
+  return cred;
+}
 export async function signUp({ name, email, password, bio }) {
   requireConfig();
   const cred = await createUserWithEmailAndPassword(auth, email, password);
@@ -84,9 +114,9 @@ export async function ensureProfile(user) {
     return { ...snap.data(), uid: user.uid };
   }
   const profile = {
-    uid: user.uid, email: user.email || '',
-    name: user.isAnonymous ? `Guest ${user.uid.slice(0, 4).toUpperCase()}` : (user.email || 'friend').split('@')[0],
-    bio: '', isGuest: Boolean(user.isAnonymous),
+    uid: user.uid, email: isGuestUser(user) ? '' : user.email,
+    name: isGuestUser(user) ? guestName(user.uid) : (user.email || 'friend').split('@')[0],
+    bio: '', isGuest: isGuestUser(user),
     avatarColor: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)], status: 'Active now', online: true, createdAt: serverTimestamp(),
   };
   await setDoc(ref, profile);

@@ -291,10 +291,7 @@ $('#guest-btn').addEventListener('click', async e => {
     say('Signed in as a guest. Opening your chats…', 'ok');
     location.href = 'app.html';
   } catch (err) {
-    const code = err?.code || '';
-    say(code.includes('operation-not-allowed') || code.includes('admin-restricted')
-      ? 'Guest sign-in is turned off for this project. Sign in with email instead.'
-      : friendly(err), 'error');
+    say(friendly(err), 'error');
   } finally { btn.disabled = false; }
 });
 $('#reset-btn').addEventListener('click', async () => {
