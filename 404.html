@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Missed the target — LakshyaGram</title>
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml"/>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=chillax@400,500,600&display=swap"/>
+  <link rel="stylesheet" href="/css/tokens.css"/>
+  <style>
+    body { min-height: 100svh; display: grid; grid-template-columns: 1fr 1fr; align-items: center; overflow: hidden; }
+    main { padding: 0 var(--margin); position: relative; z-index: 1; }
+    h1 { font-size: var(--step-hero); }
+    p { margin: 28px 0 36px; font-size: var(--step-lead); max-width: 26ch; }
+    .ring { width: 120vh; aspect-ratio: 1; border-radius: 50%; justify-self: start;
+      background: radial-gradient(circle, var(--gold) 0 10%, var(--red) 10% 20%, var(--ring-blue) 20% 30%, var(--ring-black) 30% 40%, var(--ring-white) 40% 50%, transparent 50%);
+      transform: scale(2) translateX(8%); }
+    @media (max-width: 760px) {
+      body { grid-template-columns: 1fr; align-items: start; padding-top: 15svh; }
+      .ring { position: fixed; width: 130vw; left: -15vw; top: 56svh; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Missed the target.</h1>
+    <p>This page doesn't exist. The link may be old, or the address has a typo.</p>
+    <a class="btn" href="/">Go to LakshyaGram</a>
+  </main>
+  <div class="ring" aria-hidden="true"></div>
+</body>
+</html>
