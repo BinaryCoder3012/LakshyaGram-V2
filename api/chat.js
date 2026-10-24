@@ -39,6 +39,7 @@ const LIMITS = {
 };
 const ADMINS = (process.env.ADMIN_EMAILS || 'lakshya.sudipta15@gmail.com').toLowerCase().split(',').map(e => e.trim());
 const OLLAMA_API = 'https://ollama.com/api';
+const TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 20000; // per provider, before the other one takes over
 let geminiModels = null; // cached while the function stays warm
 let ollamaModels = null;
 
@@ -65,7 +66,7 @@ async function listGeminiFlash(key) {
   return geminiModels;
 }
 
-async function askGemini(history, key) {
+async function askGemini(history, key, signal) {
   const contents = history.map(m => ({ role: m.role, parts: [{ text: m.text }] }));
   // Light thinking keeps replies fast; models that reject the setting are retried without it.
   const bodyFor = (model, light) => JSON.stringify({
@@ -85,6 +86,7 @@ async function askGemini(history, key) {
       tried.add(model);
       const call = light => fetch(`${GEMINI_API}/models/${encodeURIComponent(model)}:generateContent`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key }, body: bodyFor(model, light),
+        signal,
       });
       let res = await call(true);
       if (res.status === 400) res = await call(false);
@@ -114,7 +116,7 @@ async function listOllama(key) {
   return ollamaModels;
 }
 
-async function askOllama(history, key) {
+async function askOllama(history, key, signal) {
   const messages = [
     { role: 'system', content: SYSTEM },
     ...history.map(m => ({ role: m.role === 'model' ? 'assistant' : 'user', content: m.text })),
@@ -130,6 +132,7 @@ async function askOllama(history, key) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({ model, messages, stream: false, ...(light ? { think: 'low' } : {}), options: { temperature: 0.6 } }),
+        signal,
       });
       // Models without a thinking mode reject the setting, so retry without it.
       let res = await call(true);
@@ -202,7 +205,8 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   const keys = { gemini: process.env.GEMINI_API_KEY, ollama: process.env.OLLAMA_API_KEY };
-  const first = process.env.AI_PROVIDER === 'ollama' ? 'ollama' : 'gemini';
+  const asked = ['gemini', 'ollama'].includes(req.body?.provider) ? req.body.provider : null;
+  const first = asked || (process.env.AI_PROVIDER === 'ollama' ? 'ollama' : 'gemini');
   const order = [first, first === 'gemini' ? 'ollama' : 'gemini'].filter(p => keys[p]);
   if (!order.length) {
     console.error('Neither GEMINI_API_KEY nor OLLAMA_API_KEY is set.');
@@ -247,17 +251,24 @@ export default async function handler(req, res) {
   while (history.length && history[0].role !== 'user') history.shift();
   if (!history.length) { await refund(); return res.status(400).json({ error: 'Send at least one message.' }); }
 
-  for (const provider of order) {
+  for (const [i, provider] of order.entries()) {
+    const started = Date.now();
+    // The last provider in line gets more time, since nobody is waiting behind it.
+    const signal = AbortSignal.timeout(i === order.length - 1 ? TIMEOUT_MS * 2 : TIMEOUT_MS);
     try {
-      const { text, model } = provider === 'gemini' ? await askGemini(history, keys.gemini) : await askOllama(history, keys.ollama);
+      const { text, model } = provider === 'gemini'
+        ? await askGemini(history, keys.gemini, signal)
+        : await askOllama(history, keys.ollama, signal);
+      const ms = Date.now() - started;
+      console.log(`Lakshya AI answered with ${provider}/${model} in ${ms} ms`);
       return res.status(200).json({
-        reply: text, provider, model,
+        reply: text, provider, model, ms,
         limit: Number.isFinite(limit) ? limit : null,
         remaining: Number.isFinite(limit) ? Math.max(0, limit - used) : null,
         resetAt,
       });
     } catch (err) {
-      console.error(`Lakshya AI ${provider} failed:`, err.detail || err.message);
+      console.error(`Lakshya AI ${provider} failed after ${Date.now() - started} ms:`, err.detail || err.message);
     }
   }
   await refund();
