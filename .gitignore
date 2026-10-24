@@ -6,7 +6,6 @@ node_modules/
 *.log
 .DS_Store
 Thumbs.db
-firebase-config.js
 
 # design tooling output
 .taste-skill/
