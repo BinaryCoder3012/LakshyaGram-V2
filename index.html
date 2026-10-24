@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>LakshyaGram — every word on target</title>
+  <meta name="description" content="LakshyaGram is a real-time messenger for friends and classmates, with Lakshya AI one message away."/>
+  <meta name="author" content="Lakshya Sachdeva"/>
+  <meta property="og:title" content="LakshyaGram"/>
+  <meta property="og:description" content="A real-time messenger for friends and classmates, with Lakshya AI one message away."/>
+  <meta property="og:type" content="website"/>
+  <meta name="theme-color" content="#0A1F38"/>
+  <link rel="icon" href="assets/mark.svg" type="image/svg+xml"/>
+  <link rel="preconnect" href="https://api.fontshare.com"/>
+  <link rel="preconnect" href="https://cdn.fontshare.com" crossorigin/>
+  <link rel="stylesheet" href="https://api.fontshare.com/v2/css?f[]=chillax@400,500,600&display=swap"/>
+  <link rel="stylesheet" href="css/tokens.css"/>
+  <link rel="stylesheet" href="css/landing.css"/>
+  <script type="importmap">
+    { "imports": { "three": "https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.min.js" } }
+  </script>
+</head>
+<body>
+
+<header class="nav" id="top">
+  <a class="wordmark" href="#top" aria-label="LakshyaGram home">
+    <img src="assets/mark.svg" alt="" width="32" height="32"/>
+    <span>LakshyaGram</span>
+  </a>
+  <nav class="nav-links" aria-label="Sections">
+    <a href="#inside">Inside the app</a>
+    <a href="#how">How it works</a>
+    <a href="#signin" data-auth="login" class="nav-signin">Sign in</a>
+  </nav>
+</header>
+
+<main>
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-stage" aria-hidden="true">
+      <canvas id="target-canvas"></canvas>
+      <div class="hero-fallback"></div>
+    </div>
+
+    <div class="hero-copy">
+      <h1 id="hero-title" class="hero-title">
+        <span class="line"><span>Every word</span></span>
+        <span class="line"><span>on target.</span></span>
+      </h1>
+      <p class="hero-sub">LakshyaGram is a real-time messenger for friends and classmates, with Lakshya AI one message away.</p>
+      <div class="hero-actions">
+        <a class="btn" href="#signup" data-auth="signup">Create your account</a>
+        <a class="text-link" href="#signin" data-auth="login">I already have one</a>
+      </div>
+
+      <form class="aim" id="aim-form" data-ui autocomplete="off">
+        <label for="aim-input" class="aim-label">Send a message to the target</label>
+        <div class="aim-row">
+          <input id="aim-input" maxlength="60" placeholder="Library at 6?"/>
+          <button type="submit" class="aim-send" aria-label="Send">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+          </button>
+        </div>
+        <p class="aim-score" id="aim-score" aria-live="polite">Lakshya means the aim. Each message lands as an arrow.</p>
+      </form>
+    </div>
+    <div class="hit-layer" id="hit-layer" aria-hidden="true"></div>
+  </section>
+
+  <!-- ===================== SHOWCASE ===================== -->
+  <section class="showcase" id="inside" aria-labelledby="inside-title">
+    <div class="disc-stage">
+      <div class="disc" id="disc"></div>
+      <div class="disc-object" id="disc-object" data-ui>
+        <!-- Conversations -->
+        <div class="frag frag-list is-active" data-frag="0">
+          <div class="frag-head">Chats</div>
+          <div class="frag-row">
+            <span class="av" style="--hue:#F7A8B8">RM</span>
+            <span class="frag-main"><b>Riya Menon</b><small>Library at 6? I'll grab the corner table</small></span>
+            <span class="frag-end"><small>5:42</small><i class="badge">2</i></span>
+          </div>
+          <div class="frag-row is-selected">
+            <span class="av ai">AI</span>
+            <span class="frag-main"><b>Lakshya AI</b><small>Here's the two-line version of Dijkstra…</small></span>
+            <span class="frag-end"><small>5:30</small></span>
+          </div>
+          <div class="frag-row">
+            <span class="av" style="--hue:#9ED9B5">AK</span>
+            <span class="frag-main"><b>Arjun Kapoor</b><small>Quiz moved to Thursday</small></span>
+            <span class="frag-end"><small>4:18</small></span>
+          </div>
+          <div class="frag-row">
+            <span class="av" style="--hue:#B9C7FF">SN</span>
+            <span class="frag-main"><b>Sneha Nair</b><small>You: sending the notes now</small></span>
+            <span class="frag-end"><small>Yesterday</small></span>
+          </div>
+        </div>
+        <!-- Lakshya AI -->
+        <div class="frag frag-chat" data-frag="1">
+          <div class="frag-head"><span class="av ai small">AI</span> Lakshya AI</div>
+          <p class="b out">Explain Dijkstra's algorithm in two lines</p>
+          <p class="b in">Start at the source and always settle the closest unvisited node. Update its neighbours' distances, repeat until every node is settled.</p>
+          <p class="b out">And the time complexity?</p>
+          <p class="b in">O((V + E) log V) with a binary heap.</p>
+        </div>
+        <!-- Replies and reactions -->
+        <div class="frag frag-chat" data-frag="2">
+          <div class="frag-head"><span class="av small" style="--hue:#F7A8B8">RM</span> Riya Menon</div>
+          <p class="b in">Who's bringing the projector cable?</p>
+          <div class="b out has-reply">
+            <span class="quote"><b>Riya Menon</b>Who's bringing the projector cable?</span>
+            I've got it, and the adapter
+            <span class="reacts"><i>👍 2</i><i>🔥 1</i></span>
+          </div>
+          <p class="b in">Legend</p>
+        </div>
+        <!-- Themes -->
+        <div class="frag frag-themes" data-frag="3">
+          <div class="frag-head">Chat theme</div>
+          <div class="swatches">
+            <span style="--sw:#0A1F38" class="is-selected">Target</span>
+            <span style="--sw:#0E4A5C">Ocean</span>
+            <span style="--sw:#1E4D2B">Forest</span>
+            <span style="--sw:#6B2A1A">Ember</span>
+            <span style="--sw:#5A2142">Sakura</span>
+            <span style="--sw:#141A24">Midnight</span>
+          </div>
+          <p class="b out">Each chat keeps its own theme.</p>
+        </div>
+        <!-- Broadcast -->
+        <div class="frag frag-broadcast" data-frag="4">
+          <div class="frag-head">Broadcast to everyone</div>
+          <p class="field">Server maintenance tonight from 1 to 2 am. Messages sent then will arrive after.</p>
+          <div class="bc-preview"><b>Admin broadcast</b>Server maintenance tonight from 1 to 2 am. Messages sent then will arrive after.</div>
+          <span class="btn small">Send to all users</span>
+        </div>
+      </div>
+      <p class="disc-fact" id="disc-fact" aria-live="polite">Messages arrive the moment they are sent, on every device you are signed in on.</p>
+    </div>
+
+    <div class="disc-list" role="tablist" aria-labelledby="inside-title">
+      <h2 id="inside-title">Inside the app</h2>
+      <button role="tab" aria-selected="true" data-i="0">Conversations</button>
+      <button role="tab" aria-selected="false" data-i="1">Lakshya AI</button>
+      <button role="tab" aria-selected="false" data-i="2">Replies and reactions</button>
+      <button role="tab" aria-selected="false" data-i="3">Chat themes</button>
+      <button role="tab" aria-selected="false" data-i="4">Broadcasts</button>
+    </div>
+  </section>
+
+  <!-- ===================== FEATURES BOARD ===================== -->
+  <section class="board" aria-labelledby="board-title">
+    <div class="tile t-head"><h2 id="board-title">Small things, done right</h2></div>
+
+    <div class="tile t-typing tone-blue">
+      <div class="macro" data-ui><span class="typing"><i></i><i></i><i></i></span></div>
+      <div class="cap"><b>Typing, live</b><span>See when the other person is writing back.</span></div>
+    </div>
+    <div class="tile t-ticks tone-gold">
+      <div class="macro" data-ui><span class="ticks">✓✓</span></div>
+      <div class="cap"><b>Read receipts</b><span>One tick sent, two ticks read.</span></div>
+    </div>
+    <div class="tile t-keys tone-surface">
+      <div class="macro" data-ui><span class="keys"><kbd>Ctrl</kbd><kbd>K</kbd></span></div>
+      <div class="cap"><b>Search everything</b><span>Jump to any chat or person.</span></div>
+    </div>
+    <div class="tile t-pin tone-red">
+      <div class="macro" data-ui><span class="pin-word">Pinned</span></div>
+      <div class="cap"><b>Pin a chat</b><span>Keep it at the top.</span></div>
+    </div>
+    <div class="tile t-magic tone-light">
+      <div class="macro" data-ui><span class="magic">Your sign-in link is ready</span></div>
+      <div class="cap"><b>Magic link</b><span>Sign in from your inbox, no password needed.</span></div>
+    </div>
+    <div class="tile t-mode tone-surface">
+      <div class="macro" data-ui><span class="switch" role="presentation"><i></i></span></div>
+      <div class="cap"><b>Light or dark</b><span>One tap, remembered.</span></div>
+    </div>
+    <div class="tile t-star tone-gold">
+      <div class="macro" data-ui><span class="star">★</span></div>
+      <div class="cap"><b>Star messages</b><span>Find them again later.</span></div>
+    </div>
+    <div class="tile t-edit tone-blue">
+      <div class="macro" data-ui><span class="edited">edited</span></div>
+      <div class="cap"><b>Edit and delete</b><span>Fix a typo after sending.</span></div>
+    </div>
+    <div class="tile t-photo tone-light">
+      <div class="macro" data-ui><span class="drop">Drop a photo here</span></div>
+      <div class="cap"><b>Photos in chat</b><span>Drag an image into the conversation to send it.</span></div>
+    </div>
+  </section>
+
+  <!-- ===================== HOW IT WORKS ===================== -->
+  <section class="how" id="how" aria-labelledby="how-title">
+    <div class="how-intro">
+      <h2 id="how-title">One place<br/>to talk</h2>
+      <p>Your people are spread across hostels, clubs and a dozen group chats. LakshyaGram pulls them into one list you can keep up with.</p>
+    </div>
+    <svg class="how-diagram" id="how-diagram" viewBox="0 0 1200 270" role="img" aria-label="Scattered dots gather into a tight band, then fan out into neat gold rows"></svg>
+    <ol class="how-steps">
+      <li><b>Find</b><span>Search everyone on LakshyaGram by name or email and start a chat in one tap.</span></li>
+      <li><b>Talk</b><span>Messages, typing and read receipts update live, on every device.</span></li>
+      <li><b>Keep</b><span>Pin the chats that matter and star the messages you will need again.</span></li>
+    </ol>
+  </section>
+
+  <!-- ===================== CTA ===================== -->
+  <section class="cta" aria-labelledby="cta-title">
+    <form id="cta-form" class="cta-form">
+      <h2 id="cta-title" class="cta-line">
+        <span>Sign up as</span>
+        <span class="cta-blank">
+          <label for="cta-email" class="visually-hidden">Your email</label>
+          <input id="cta-email" type="email" placeholder="you@email.com" required/>
+          <button type="submit">and join</button>
+        </span>
+      </h2>
+      <p class="cta-note">We'll open account creation with this email filled in. It takes under a minute.</p>
+    </form>
+  </section>
+</main>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="footer">
+  <div class="blocks" aria-label="LakshyaGram">
+    <span style="--h:100%">L</span><span style="--h:78%">a</span><span style="--h:92%">k</span><span style="--h:70%">s</span><span style="--h:96%">h</span><span style="--h:66%">y</span><span style="--h:84%">a</span><span style="--h:100%">G</span><span style="--h:74%">r</span><span style="--h:88%">a</span><span style="--h:94%">m</span>
+  </div>
+  <div class="footer-links">
+    <div><b>Product</b><a href="#signup" data-auth="signup">Create account</a><a href="#signin" data-auth="login">Sign in</a><a href="app.html">Open the app</a></div>
+    <div><b>Explore</b><a href="#inside">Inside the app</a><a href="#how">How it works</a></div>
+    <div><b>Project</b><a href="https://github.com/BinaryCoder3012/LakshyaGram-V2">Source on GitHub</a><a href="https://github.com/BinaryCoder3012/LakshyaGram-V2/issues">Report a problem</a></div>
+    <div class="footer-place"><b>Made at</b><span>BITS Pilani, Hyderabad Campus</span><span>Jawahar Nagar, Telangana</span></div>
+  </div>
+  <div class="footer-last">
+    <span>© 2026 Lakshya Sachdeva</span>
+    <a class="btn small" href="#top">Back to top</a>
+  </div>
+</footer>
+
+<!-- ===================== AUTH ===================== -->
+<dialog class="auth" id="auth" aria-labelledby="auth-title">
+  <form method="dialog" class="auth-close-form"><button class="auth-close" aria-label="Close">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>
+  </button></form>
+  <img class="auth-mark" src="assets/mark.svg" alt="" width="56" height="56"/>
+  <h2 id="auth-title" class="auth-title">Welcome back</h2>
+  <div class="auth-tabs" role="tablist">
+    <button role="tab" data-tab="login" aria-selected="true">Sign in</button>
+    <button role="tab" data-tab="signup" aria-selected="false">Create account</button>
+  </div>
+
+  <form class="auth-form" id="form-login" data-tab="login" novalidate>
+    <label>Email<input type="email" name="email" autocomplete="email" required placeholder="you@email.com"/></label>
+    <label>Password
+      <span class="pass"><input type="password" name="password" autocomplete="current-password" required placeholder="Your password"/>
+      <button type="button" class="show-pass" aria-label="Show password">Show</button></span>
+    </label>
+    <button class="btn" type="submit">Sign in</button>
+    <button class="btn quiet" type="button" id="magic-btn">Email me a sign-in link</button>
+    <button class="text-link small" type="button" id="reset-btn">Forgot your password?</button>
+  </form>
+
+  <form class="auth-form" id="form-signup" data-tab="signup" novalidate hidden>
+    <label>Your name<input type="text" name="name" autocomplete="name" required placeholder="Riya Menon"/></label>
+    <label>Email<input type="email" name="email" autocomplete="email" required placeholder="you@email.com"/></label>
+    <label>Password
+      <span class="pass"><input type="password" name="password" autocomplete="new-password" required minlength="6" placeholder="At least 6 characters"/>
+      <button type="button" class="show-pass" aria-label="Show password">Show</button></span>
+      <span class="strength" aria-hidden="true"><i></i></span>
+    </label>
+    <label>Bio <span class="optional">optional</span><input type="text" name="bio" maxlength="80" placeholder="Second year, CSE"/></label>
+    <button class="btn" type="submit">Create account</button>
+  </form>
+
+  <p class="auth-msg" id="auth-msg" role="status"></p>
+</dialog>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+<script src="firebase-config.js"></script>
+<script type="module" src="js/landing.js"></script>
+</body>
+</html>
