@@ -2,7 +2,7 @@
 
 A real-time messenger for friends and classmates, with Lakshya AI one message away.
 
-*Lakshya* means the aim, the target. The whole design comes from that idea. The landing page opens on a 3D archery target built in Three.js, and any message you type there flies into it as an arrow. The target's colours (blue face, gold centre, red ring) are the palette for the whole app.
+Hi, I am *Lakshya*! and my name means the aim, the target. The whole design comes from that idea. The landing page opens on a 3D archery target built in Three.js, and any message you type there flies into it as an arrow. The target's colours (blue face, gold centre, red ring) are the palette for the whole app.
 
 ## What's inside
 
